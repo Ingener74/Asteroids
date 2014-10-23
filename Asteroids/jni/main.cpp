@@ -1,4 +1,6 @@
 
+#include <memory>
+
 #include <jni.h>
 #include <errno.h>
 
@@ -12,6 +14,38 @@
 const char *TAG = "Asteroids";
 #define LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__))
+
+class AndroidLogBuffer: public streambuf
+{
+public:
+    AndroidLogBuffer(ostream& stream, android_LogPriority priority = ANDROID_LOG_DEBUG) :
+            streambuf(), _buffer(1024), _stream(stream), _orig(stream.rdbuf()), _priority(priority)
+    {
+        setp(&_buffer.front(), &_buffer.back() + 1);
+        _stream.rdbuf(this);
+    }
+    virtual ~AndroidLogBuffer()
+    {
+        _stream.rdbuf(_orig);
+    }
+
+    virtual int sync()
+    {
+        __android_log_print(_priority, "UsbCameraViewer", "%s", pbase());
+        pbump(-(pptr() - pbase()));
+        for (auto &b : _buffer)
+        {
+            b = 0;
+        }
+        return 0;
+    }
+
+private:
+    vector<char> _buffer;
+    ostream& _stream;
+    streambuf* _orig = nullptr;
+    android_LogPriority _priority = ANDROID_LOG_DEBUG;
+};
 
 struct engine
 {
@@ -33,6 +67,8 @@ struct engine
 
 #include <Game/Game.h>
 using namespace ndk_game;
+
+using namespace std;
 
 
 
@@ -106,20 +142,20 @@ static int engine_init_display(struct engine* engine)
             virtual ~AndLog()
             {
             }
-            virtual void Error(const std::string& message) throw ()
+            virtual void Error(const string& message) throw ()
             {
                 LOGE("%s", message.c_str());
             }
-            virtual void Debug(const std::string& message) throw ()
+            virtual void Debug(const string& message) throw ()
             {
                 LOGD("%s", message.c_str());
             }
         };
-        Log::pushLog(std::make_shared<AndLog>());
+        Log::pushLog(make_shared<AndLog>());
 
         Log() << "Creating game";
 
-//        game = std::make_shared<GameBuilder>(
+//        game = make_shared<GameBuilder>(
 //                engine->app->savedState, engine->app->savedStateSize, w, h, engine->app);
 
         Game::instance()->startGame(engine->app, w, h);
@@ -128,7 +164,7 @@ static int engine_init_display(struct engine* engine)
 
         Log() << "done";
     }
-    catch (std::exception const & e)
+    catch (exception const & e)
     {
         Log(ERROR) << "Creating game error: " << e.what();
     }
@@ -151,7 +187,7 @@ static void engine_draw_frame(struct engine* engine)
      */
     try
     {
-        using namespace std::chrono;
+        using namespace chrono;
         static auto tp = system_clock::now();
 
         Game::Ptr game = Game::instance();
@@ -164,7 +200,7 @@ static void engine_draw_frame(struct engine* engine)
 
         game->getEngine()->draw();
     }
-    catch (const std::exception& e)
+    catch (const exception& e)
     {
         Log() << "draw or animate error: " << e.what();
     }
@@ -211,7 +247,7 @@ static int32_t engine_handle_input(struct android_app* app, AInputEvent* event)
             Game::instance()->getEngine()->inputToAll(x, y);
 
         }
-        catch (const std::exception& e)
+        catch (const exception& e)
         {
             Log() << "Input error: " << e.what();
         }
@@ -234,14 +270,14 @@ static void engine_handle_cmd(struct android_app* app, int32_t cmd)
 //                auto savedState = game->saveGame();
 //
 //                Log() << "Check state "
-//                        << *(static_cast<int*>(std::get<0>(savedState)));
+//                        << *(static_cast<int*>(get<0>(savedState)));
 //
-//                engine->app->savedState = std::get<0>(savedState);
-//                engine->app->savedStateSize = std::get<1>(savedState);
+//                engine->app->savedState = get<0>(savedState);
+//                engine->app->savedStateSize = get<1>(savedState);
 //
 //                Log() << "State saved";
             }
-            catch (const std::exception& e)
+            catch (const exception& e)
             {
                 Log() << "Saving state error: " << e.what();
             }
