@@ -1,5 +1,7 @@
 
 #include <memory>
+#include <iostream>
+#include <vector>
 
 #include <jni.h>
 #include <errno.h>
@@ -14,6 +16,42 @@
 const char *TAG = "Asteroids";
 #define LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__))
+
+using namespace std;
+
+class AssetFileBuffer: public streambuf
+{
+public:
+    AssetFileBuffer(android_app* application, const string& fileName)
+    {
+		if (!application)
+			throw invalid_argument("application pointer is invalid");
+
+		shared_ptr<AAsset> asset(AAssetManager_open(application->activity->assetManager, fileName.c_str(), AASSET_MODE_UNKNOWN), [](AAsset* file)
+		{
+			AAsset_close(file);
+		});
+
+		if (!asset)
+			throw runtime_error("can't open file " + fileName);
+
+        auto size = AAsset_getLength(asset.get());
+
+        _buffer.reserve(size);
+
+        auto res = AAsset_read(asset.get(), _buffer.data(), size);
+        if (res != size) throw runtime_error("can't read file");
+
+        setg(_buffer.data(), _buffer.data(), _buffer.data() + _buffer.capacity());
+    }
+    virtual ~AssetFileBuffer()
+    {
+        cout << __PRETTY_FUNCTION__ << endl;
+    }
+
+private:
+    vector<char> _buffer;
+};
 
 class AndroidLogBuffer: public streambuf
 {
@@ -31,7 +69,7 @@ public:
 
     virtual int sync()
     {
-        __android_log_print(_priority, "UsbCameraViewer", "%s", pbase());
+        __android_log_print(_priority, "Asteroids", "%s", pbase());
         pbump(-(pptr() - pbase()));
         for (auto &b : _buffer)
         {
@@ -70,7 +108,7 @@ using namespace ndk_game;
 
 using namespace std;
 
-
+std::shared_ptr<AndroidLogBuffer> buffer;
 
 static int engine_init_display(struct engine* engine)
 {
@@ -133,6 +171,18 @@ static int engine_init_display(struct engine* engine)
 
     try
     {
+    	buffer = make_shared<AndroidLogBuffer>(cout);
+
+    	shared_ptr<istream> input(new istream(new AssetFileBuffer(engine->app, "scripts/game.lua")), [](istream* s)
+		{
+    		delete s->rdbuf();
+    		delete s;
+		});
+
+    	string game_lua((istreambuf_iterator<char>(*input)), istreambuf_iterator<char>());
+
+    	cout << game_lua << endl;
+
         class AndLog: public Log::ILog
         {
         public:
