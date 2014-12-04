@@ -22,25 +22,25 @@ using namespace std;
 class AssetFileBuffer: public streambuf
 {
 public:
-    AssetFileBuffer(android_app* application, const string& fileName)
+    AssetFileBuffer( android_app* application, const string& fileName )
     {
-		if (!application)
-			throw invalid_argument("application pointer is invalid");
+        if ( !application ) throw invalid_argument("application pointer is invalid");
 
-		shared_ptr<AAsset> asset(AAssetManager_open(application->activity->assetManager, fileName.c_str(), AASSET_MODE_UNKNOWN), [](AAsset* file)
-		{
-			AAsset_close(file);
-		});
+        shared_ptr<AAsset> asset(AAssetManager_open(application->activity->assetManager, fileName.c_str(), AASSET_MODE_UNKNOWN),
+        [](AAsset* file)
+        {
+            if(file)
+                AAsset_close(file);
+        });
 
-		if (!asset)
-			throw runtime_error("can't open file " + fileName);
+        if ( !asset ) throw runtime_error("can't open file " + fileName);
 
         auto size = AAsset_getLength(asset.get());
 
         _buffer.reserve(size);
 
         auto res = AAsset_read(asset.get(), _buffer.data(), size);
-        if (res != size) throw runtime_error("can't read file");
+        if ( res != size ) throw runtime_error("can't read file");
 
         setg(_buffer.data(), _buffer.data(), _buffer.data() + _buffer.capacity());
     }
@@ -171,17 +171,17 @@ static int engine_init_display(struct engine* engine)
 
     try
     {
-    	buffer = make_shared<AndroidLogBuffer>(cout);
+        buffer = make_shared<AndroidLogBuffer>(cout);
 
-    	shared_ptr<istream> input(new istream(new AssetFileBuffer(engine->app, "scripts/game.lua")), [](istream* s)
-		{
-    		delete s->rdbuf();
-    		delete s;
-		});
+        shared_ptr<istream> input(new istream(new AssetFileBuffer(engine->app, "scripts/game.lua")), [](istream* s)
+        {
+            delete s->rdbuf();
+            delete s;
+        });
 
-    	string game_lua((istreambuf_iterator<char>(*input)), istreambuf_iterator<char>());
+        string game_lua((istreambuf_iterator<char>(*input)), istreambuf_iterator<char>());
 
-    	cout << game_lua << endl;
+        cout << game_lua << endl;
 
         class AndLog: public Log::ILog
         {
