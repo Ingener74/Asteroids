@@ -26,8 +26,7 @@ public:
     {
         if ( !application ) throw invalid_argument("application pointer is invalid");
 
-        shared_ptr<AAsset> asset(AAssetManager_open(application->activity->assetManager, fileName.c_str(), AASSET_MODE_UNKNOWN),
-        [](AAsset* file)
+        shared_ptr<AAsset> asset(AAssetManager_open(application->activity->assetManager, fileName.c_str(), AASSET_MODE_UNKNOWN), [](AAsset* file)
         {
             if(file)
                 AAsset_close(file);
