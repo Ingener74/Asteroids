@@ -24,16 +24,14 @@ class AssetFileBuffer: public streambuf
 public:
     AssetFileBuffer(android_app* application, const string& fileName)
     {
-		if (!application)
-			throw invalid_argument("application pointer is invalid");
+        if (!application) throw invalid_argument("application pointer is invalid");
 
-		shared_ptr<AAsset> asset(AAssetManager_open(application->activity->assetManager, fileName.c_str(), AASSET_MODE_UNKNOWN), [](AAsset* file)
-		{
-			AAsset_close(file);
-		});
+        shared_ptr <AAsset> asset(AAssetManager_open(application->activity->assetManager, fileName.c_str(), AASSET_MODE_UNKNOWN), [](AAsset* file)
+        {
+            AAsset_close(file);
+        });
 
-		if (!asset)
-			throw runtime_error("can't open file " + fileName);
+        if (!asset) throw runtime_error("can't open file " + fileName);
 
         auto size = AAsset_getLength(asset.get());
 
